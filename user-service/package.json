@@ -2,16 +2,17 @@
   "name": "user-service",
   "version": "1.0.0",
   "description": "User service for travelers social network",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node index.ts",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch \"src/**/*.ts\" --exec \"npx ts-node\" src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.0",
     "pg": "^8.10.0",
@@ -25,6 +26,7 @@
     "@types/node": "^18.15.11",
     "@types/pg": "^8.6.6",
     "@types/uuid": "^9.0.1",
+    "nodemon": "^2.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   }
