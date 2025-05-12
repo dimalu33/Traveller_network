@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '../.env' }); // Вказуємо шлях до .env відносно директорії src
+dotenv.config();
 
 export default {
     port: process.env.POST_SERVICE_PORT || 3002,
