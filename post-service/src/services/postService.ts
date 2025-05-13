@@ -76,16 +76,18 @@ export async function addLikeToPost(data: NewLikeData): Promise<Like | { message
     }
 }
 
-// Додатково: отримання коментарів для поста
 export async function getCommentsForPost(postId: string): Promise<Comment[]> {
     const result = await pool.query('SELECT * FROM comments WHERE post_id = $1 ORDER BY created_at ASC', [postId]);
     return result.rows;
 }
 
-// Додатково: отримання лайків (або їх кількості) для поста
-export async function getLikesForPost(postId: string): Promise<Like[]> {
-    const result = await pool.query('SELECT * FROM likes WHERE post_id = $1', [postId]);
-    return result.rows;
+export async function getLikesForPost(postId: string): Promise<number> {
+    const result = await pool.query(
+        'SELECT COUNT(*) FROM likes WHERE post_id = $1',
+        [postId]
+    );
+
+    return parseInt(result.rows[0].count, 10);
 }
 
 // Додамо функцію для оновлення image_url після обробки зображення

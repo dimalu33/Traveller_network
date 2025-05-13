@@ -8,16 +8,15 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors()); // Дозволяє запити з інших доменів (важливо для мікросервісів)
+app.use(cors());
 
 // Ініціалізація БД
 initializeDatabasePostService().catch(err => {
     console.error("Failed to initialize Post Service database on startup:", err);
-    process.exit(1); // Зупиняємо, якщо БД не ініціалізована
+    process.exit(1);
 });
 
-// Routes
-app.use('/posts', postRoutes); // Всі маршрути для постів будуть починатися з /posts
+app.use('/posts', postRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

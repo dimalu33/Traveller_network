@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { userServiceProxy, postServiceProxy } from './middlewares/proxySetup'; // Імпортуємо обидва проксі
+import { userServiceProxy, postServiceProxy } from './middlewares/proxySetup';
+import { authMiddleware } from './middlewares/authMiddleware';
 
 const app = express();
 
@@ -14,20 +15,22 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     next();
 });
 
-// Routes & Proxying
-// Усі запити, що починаються з /users, будуть перенаправлені до User Service
 app.use('/users', userServiceProxy);
 
-// Усі запити, що починаються з /posts, будуть перенаправлені до Post Service
-app.use('/posts', postServiceProxy);
+app.post('/posts', authMiddleware, postServiceProxy);
+app.post('/posts/:postId/like', authMiddleware, postServiceProxy);
+app.post('/posts/:postId/comments', authMiddleware, postServiceProxy);
 
-// Health check endpoint
+app.get('/posts', postServiceProxy);                // Отримання списку постів
+app.get('/posts/:postId/comments', postServiceProxy); // Отримання коментарів до поста
+app.get('/posts/:postId/likes', postServiceProxy);    // Отримання лайків для поста
+
 app.get('/health', (req: Request, res: Response) => {
     console.log('[API Gateway] Health check requested');
     res.status(200).json({ status: 'UP', service: 'API Gateway' });
 });
 
-// Catch-all для невідомих маршрутів (опціонально, але корисно)
+// Catch-all для невідомих маршрутів
 app.use((req: Request, res: Response) => {
     console.warn(`[API Gateway] Unknown route: ${req.method} ${req.originalUrl}`);
     res.status(404).json({ error: 'Not Found on API Gateway' });

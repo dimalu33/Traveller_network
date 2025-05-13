@@ -12,7 +12,6 @@ export const pool = new Pool({
 export async function initializeDatabasePostService() {
     const client = await pool.connect();
     try {
-        // Таблиця posts
         await client.query(`
             CREATE TABLE IF NOT EXISTS posts (
                 id UUID PRIMARY KEY,

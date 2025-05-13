@@ -1,30 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
 import * as postService from '../services/postService';
 import { NewPostData, NewCommentData, NewLikeData } from '../models/postTypes';
+import {getLikesForPost} from "../services/postService";
 
 export async function handleCreatePost(req: Request, res: Response, next: NextFunction) {
-    // ПОКИ ЩО: user_id беремо з тіла запиту. Пізніше це буде з JWT токена.
-    const { user_id, text, image_url } = req.body;
+    // Отримуємо user_id з заголовка, який додав API Gateway
+    const userIdFromHeader = req.headers['x-user-id'] as string; // Приводимо до рядка, бо заголовки можуть бути string | string[]
 
-    if (!user_id || (!text && !image_url)) { // user_id обов'язковий, і хоча б текст або зображення
-        return res.status(400).json({ error: 'User ID and text or image_url are required' });
+    if (!userIdFromHeader) {
+        console.warn('[PostService] X-User-ID header is missing!');
+        return res.status(401).json({ error: 'Unauthorized: User ID not provided in headers' });
     }
 
-    const postData: NewPostData = { user_id, text, image_url };
+    const { text, image_url } = req.body;
+
+    if ((!text && !image_url)) { // user_id тепер не перевіряємо тут, бо він з заголовка
+        return res.status(400).json({ error: 'Text or image_url are required' });
+    }
+
+    const postData: NewPostData = { user_id: userIdFromHeader, text, image_url };
 
     try {
-        // Тут буде логіка відправки image_url в RabbitMQ, якщо він є
-        // Поки що просто створюємо пост
         const post = await postService.createPost(postData);
-        // Якщо image_url є, то тут потрібно буде відправити повідомлення в чергу RabbitMQ
-        // для Image Processing Service. Наприклад:
-        // if (image_url) {
-        //   await sendMessageToImageQueue({ postId: post.id, imageUrl: image_url });
-        // }
         res.status(201).json(post);
     } catch (error) {
         console.error('Error creating post:', error);
-        next(error); // Передаємо помилку централізованому обробнику
+        next(error);
     }
 }
 
@@ -40,18 +41,19 @@ export async function handleGetPosts(req: Request, res: Response, next: NextFunc
 
 export async function handleAddLike(req: Request, res: Response, next: NextFunction) {
     const { postId } = req.params;
-    // ПОКИ ЩО: user_id беремо з тіла запиту.
-    const { user_id } = req.body;
+    // Отримуємо user_id з заголовка
+    const userIdFromHeader = req.headers['x-user-id'] as string;
 
-    if (!user_id) {
-        return res.status(400).json({ error: 'User ID is required' });
+    if (!userIdFromHeader) {
+        console.warn('[PostService] X-User-ID header is missing in handleAddLike!');
+        return res.status(401).json({ error: 'Unauthorized: User ID not provided in headers' });
     }
 
-    const likeData: NewLikeData = { post_id: postId, user_id };
+    const likeData: NewLikeData = { post_id: postId, user_id: userIdFromHeader };
 
     try {
         const result = await postService.addLikeToPost(likeData);
-        res.status(result.hasOwnProperty('id') ? 201 : 200).json(result); // 201 для створення, 200 для видалення
+        res.status(result.hasOwnProperty('id') ? 201 : 200).json(result);
     } catch (error: any) {
         if (error.statusCode) {
             return res.status(error.statusCode).json({ error: error.message });
@@ -63,14 +65,19 @@ export async function handleAddLike(req: Request, res: Response, next: NextFunct
 
 export async function handleAddComment(req: Request, res: Response, next: NextFunction) {
     const { postId } = req.params;
-    // ПОКИ ЩО: user_id беремо з тіла запиту.
-    const { user_id, text } = req.body;
+    const userIdFromHeader = req.headers['x-user-id'] as string;
+    const { text } = req.body;
 
-    if (!user_id || !text) {
-        return res.status(400).json({ error: 'User ID and text are required' });
+    if (!userIdFromHeader) {
+        console.warn('[PostService] X-User-ID header is missing in handleAddComment!');
+        return res.status(401).json({ error: 'Unauthorized: User ID not provided in headers' });
     }
 
-    const commentData: NewCommentData = { post_id: postId, user_id, text };
+    if (!text) { // user_id тепер не перевіряємо тут
+        return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const commentData: NewCommentData = { post_id: postId, user_id: userIdFromHeader, text };
 
     try {
         const comment = await postService.addCommentToPost(commentData);
@@ -96,5 +103,29 @@ export async function handleUpdatePostImageUrl(postId: string, imageUrl: string)
         }
     } catch (error) {
         console.error(`Error updating image URL for post ${postId}:`, error);
+    }
+}
+
+export async function handleGetCommentsForPost(req: Request, res: Response, next: NextFunction) {
+    const { postId } = req.params;
+
+    try {
+        const comments = await postService.getCommentsForPost(postId);
+        res.json(comments);
+    } catch (error) {
+        console.error('Error getting comments for post:', error);
+        next(error);
+    }
+}
+
+export async function handleGetLikesForPost(req: Request, res: Response, next: NextFunction) {
+    const { postId } = req.params;
+
+    try {
+        const likeCount = await postService.getLikesForPost(postId);
+        res.json({ postId, likeCount });
+    } catch (error) {
+        console.error('Error getting likes for post:', error);
+        next(error);
     }
 }

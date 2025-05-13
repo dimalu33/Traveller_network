@@ -6,7 +6,6 @@ export interface Post {
     text: string | null;
     image_url: string | null;
     created_at: Date;
-    // Можна додати поля для кількості лайків/коментарів, якщо будеш їх агрегувати
 }
 
 export interface NewPostData {

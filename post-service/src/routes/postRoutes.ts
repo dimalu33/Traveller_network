@@ -10,10 +10,8 @@ router.get('/', postController.handleGetPosts);     // Отримання спи
 router.post('/:postId/like', postController.handleAddLike);         // Лайк поста
 router.post('/:postId/comments', postController.handleAddComment); // Додавання коментаря до поста
 
-// Додаткові маршрути (можна розширити)
-// router.get('/:postId', postController.handleGetPostById);
-// router.get('/:postId/comments', postController.handleGetCommentsForPost);
-// router.get('/:postId/likes', postController.handleGetLikesForPost);
+router.get('/:postId/comments', postController.handleGetCommentsForPost);
+router.get('/:postId/likes', postController.handleGetLikesForPost);
 
 
 export default router;
