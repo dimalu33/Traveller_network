@@ -1,0 +1,23 @@
+# traveller_network/docker-compose.yml
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management # Версія з плагіном управління
+    container_name: rabbitmq_server
+    ports:
+      - "5672:5672"  # AMQP порт
+      - "15672:15672" # Веб-інтерфейс управління (логін/пароль: guest/guest)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rabbitmq_data:

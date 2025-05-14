@@ -39,3 +39,16 @@ export interface NewLikeData {
     post_id: string; // Буде з параметра URL
     user_id: string; // Поки що передаємо явно, пізніше буде з токена
 }
+
+export interface ImageProcessingTask {
+    postId: string;
+    originalImagePath: string;
+    originalFileName: string;
+}
+
+export interface ImageProcessingResult {
+    postId: string;
+    processedImageUrl?: string;
+    success: boolean;
+    error?: string;
+}
