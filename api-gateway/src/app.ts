@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { userServiceProxy, postServiceProxy } from './middlewares/proxySetup';
+import { userServiceProxy, postServiceProxy, imageServiceProxy } from './middlewares/proxySetup';
 import { authMiddleware } from './middlewares/authMiddleware';
 
 const app = express();
@@ -16,6 +16,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use('/users', userServiceProxy);
+
+app.use('/processed_images', imageServiceProxy);
+
 
 app.post('/posts', authMiddleware, postServiceProxy);
 app.post('/posts/:postId/like', authMiddleware, postServiceProxy);
@@ -47,6 +50,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
         });
     }
 });
+
 
 
 export default app;

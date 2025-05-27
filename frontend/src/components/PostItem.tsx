@@ -119,6 +119,7 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
 
     const imageUrl = post.image_url;
 
+
     return (
         <article style={{
             backgroundColor: 'white',

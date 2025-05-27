@@ -70,6 +70,23 @@ const postServiceProxyOptions: Options = {
     }
 };
 
+const imageServiceProxyOptions: Options = {
+    target: config.imageServiceUrl, // Беремо з конфігу
+    changeOrigin: true,
+
+    onProxyReq: (proxyReq, req: ExpressRequest, res: Response) => {
+        console.log(`[API Gateway -> ImageService] Proxying: ${req.method} ${proxyReq.path}`);
+        // Для GET запитів зображень тіло зазвичай не потрібне
+    },
+    onError: (err, req, res) => {
+        console.error('[API Gateway] Image Service Proxy error:', err);
+        if (res && !res.headersSent) {
+            res.status(500).send('Proxy Error to Image Service');
+        }
+    }
+};
+
 
 export const userServiceProxy: RequestHandler = createProxyMiddleware(userServiceProxyOptions);
 export const postServiceProxy: RequestHandler = createProxyMiddleware(postServiceProxyOptions);
+export const imageServiceProxy: RequestHandler = createProxyMiddleware(imageServiceProxyOptions);

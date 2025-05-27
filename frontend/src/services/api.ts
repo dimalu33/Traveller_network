@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_GATEWAY_URL || 'http://localhost:8000';
-export const IMAGE_SERVICE_BASE_URL = process.env.REACT_APP_IMAGE_SERVICE_BASE_URL || 'http://localhost:3003';
+export const IMAGE_SERVICE_BASE_URL = process.env.REACT_APP_IMAGE_SERVICE_BASE_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
