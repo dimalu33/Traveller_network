@@ -21,28 +21,69 @@ export async function getAllPosts(): Promise<Post[]> {
 
 // Додатково: отримання одного поста за ID
 export async function getPostById(postId: string): Promise<Post | null> {
-    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    console.log(`[SVC_getPostById] Attempting to fetch post. PostID: ${postId}`);
+    try {
+        const result = await pool.query('SELECT * FROM posts WHERE id = $1', [postId]);
+        if (result.rows.length > 0) {
+            console.log(`[SVC_getPostById] Post found. PostID: ${postId}`);
+            return result.rows[0];
+        }
+        console.log(`[SVC_getPostById] Post NOT found. PostID: ${postId}`);
+        return null;
+    } catch (error: any) {
+        console.error(`[SVC_getPostById] ERROR fetching post. PostID: ${postId}. Message: ${error.message}. Stack: ${error.stack}`);
+        // Перекидаємо помилку, щоб її обробив викликаючий код
+        throw error;
+    }
 }
-
 
 export async function addCommentToPost(data: NewCommentData): Promise<Comment> {
     const { post_id, user_id, text } = data;
     const commentId = uuidv4();
+    console.log(`[SVC_addCommentToPost] START. UserID: ${user_id}, PostID: ${post_id}, Generated CommentID: ${commentId}, Text: "${text ? text.substring(0, 50) + '...' : 'N/A'}"`);
 
-    // Перевірка існування поста (опціонально, але добре для цілісності)
-    const postExists = await getPostById(post_id);
-    if (!postExists) {
-        const error = new Error('Post not found');
-        (error as any).statusCode = 404;
-        throw error;
+    try {
+        // 1. Перевірка існування поста
+        console.log(`[SVC_addCommentToPost] Step 1: Checking existence of post ${post_id}...`);
+        const postExists = await getPostById(post_id); // Виклик функції з логуванням
+        if (!postExists) {
+            console.warn(`[SVC_addCommentToPost] Post ${post_id} not found. Aborting comment creation.`);
+            const error = new Error('Post not found');
+            (error as any).statusCode = 404;
+            throw error;
+        }
+        console.log(`[SVC_addCommentToPost] Step 1: Post ${post_id} confirmed to exist.`);
+
+        // 2. Вставка коментаря
+        const query = 'INSERT INTO comments (id, post_id, user_id, text, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *';
+        const values = [commentId, post_id, user_id, text];
+        console.log(`[SVC_addCommentToPost] Step 2: Executing INSERT query for comment ${commentId}. Query: ${query}, Values: ${JSON.stringify(values)}`);
+
+        const result = await pool.query(query, values);
+        console.log(`[SVC_addCommentToPost] Step 2: INSERT query for comment ${commentId} executed. Rows returned: ${result.rows.length}`);
+
+        if (result.rows.length === 0) {
+            // Це дуже малоймовірно з RETURNING *, але для повноти
+            console.error(`[SVC_addCommentToPost] CRITICAL: No rows returned after INSERT RETURNING * for comment ${commentId}. This should not happen.`);
+            throw new Error('Failed to create comment, no data returned from DB. This indicates a serious DB issue.');
+        }
+
+        const newComment = result.rows[0];
+        console.log(`[SVC_addCommentToPost] END. Comment ${commentId} created successfully. Data: ${JSON.stringify(newComment)}`);
+        return newComment;
+
+    } catch (error: any) {
+        console.error(`[SVC_addCommentToPost] OVERALL ERROR during comment creation. PostID: ${post_id}, UserID: ${user_id}, CommentID: ${commentId}.`);
+        console.error(`[SVC_addCommentToPost] Error Message: ${error.message}`);
+        // Не потрібно дублювати стек, якщо він вже залогований в getPostById або буде залогований глобальним обробником
+        // console.error(`[SVC_addCommentToPost] Error Stack: ${error.stack}`);
+
+        // Переконаємося, що помилка має statusCode для контролера
+        if (!(error as any).statusCode) {
+            (error as any).statusCode = 500; // Загальна помилка сервера
+        }
+        throw error; // Перекидаємо помилку для обробки в контролері
     }
-
-    const result = await pool.query(
-        'INSERT INTO comments (id, post_id, user_id, text, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
-        [commentId, post_id, user_id, text]
-    );
-    return result.rows[0];
 }
 
 export async function addLikeToPost(data: NewLikeData): Promise<Like | { message: string }> {

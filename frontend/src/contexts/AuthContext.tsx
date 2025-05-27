@@ -1,30 +1,26 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// Припускаємо, що ваш api.ts експортує функцію loginUser та тип User
 import { loginUser as apiLoginUser, User } from '../services/api';
 
-// Інтерфейс для даних, які повертає наша функція loginUser з api.ts
 interface LoginResponse {
     user: User;
     token: string;
 }
 
-// Тип для даних, які передаються у функцію login
 interface LoginCredentials {
     email: string;
     password: string;
 }
 
-// Тип для значень, які надає наш контекст
 interface AuthContextType {
     user: User | null;
     token: string | null;
     isAuthenticated: boolean;
-    isLoading: boolean; // Для початкового завантаження стану з localStorage
-    login: (credentials: LoginCredentials) => Promise<void>; // login тепер асинхронний
+    isLoading: boolean;
+    login: (credentials: LoginCredentials) => Promise<void>;
     logout: () => void;
-    error: string | null; // Для відображення помилок логіну
-    clearError: () => void; // Щоб очистити помилку
+    error: string | null;
+    clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,75 +29,117 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    const [isLoading, setIsLoading] = useState<boolean>(true); // Починаємо із завантаженням
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Ефект для завантаження стану аутентифікації з localStorage при першому завантаженні
+    // Ефект для завантаження стану аутентифікації з localStorage
     useEffect(() => {
-        try {
-            const storedToken = localStorage.getItem('authToken');
-            const storedUserJson = localStorage.getItem('authUser');
+        const loadAuthState = () => {
+            try {
+                const storedToken = localStorage.getItem('authToken');
+                const storedUserJson = localStorage.getItem('authUser');
 
-            if (storedToken && storedUserJson) {
-                const parsedUser = JSON.parse(storedUserJson) as User;
-                setUser(parsedUser);
-                setToken(storedToken);
-                setIsAuthenticated(true);
+                console.log('Loading auth state:', {
+                    hasToken: !!storedToken,
+                    hasUser: !!storedUserJson
+                });
+
+                if (storedToken && storedUserJson) {
+                    try {
+                        const parsedUser = JSON.parse(storedUserJson) as User;
+                        console.log('Parsed user:', parsedUser);
+
+                        // Перевіряємо, чи є всі необхідні поля
+                        if (parsedUser.id && parsedUser.name && parsedUser.email) {
+                            setUser(parsedUser);
+                            setToken(storedToken);
+                            setIsAuthenticated(true);
+                            console.log('Auth restored successfully');
+                        } else {
+                            console.warn('Invalid user data in localStorage');
+                            // Очищуємо некоректні дані
+                            localStorage.removeItem('authToken');
+                            localStorage.removeItem('authUser');
+                        }
+                    } catch (parseError) {
+                        console.error('Failed to parse user data:', parseError);
+                        localStorage.removeItem('authToken');
+                        localStorage.removeItem('authUser');
+                    }
+                } else {
+                    console.log('No stored auth data found');
+                }
+            } catch (e) {
+                console.error('Failed to load auth state from localStorage:', e);
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('authUser');
+            } finally {
+                setIsLoading(false);
             }
-        } catch (e) {
-            console.error("Failed to load auth state from localStorage", e);
-            // Якщо дані пошкоджені, очистимо їх
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('authUser');
-        } finally {
-            setIsLoading(false); // Завершуємо завантаження в будь-якому випадку
-        }
-    }, []); // Пустий масив залежностей, щоб виконати один раз
+        };
+
+        // Додаємо невелику затримку для плавності
+        const timer = setTimeout(loadAuthState, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const login = async (credentials: LoginCredentials) => {
-        setError(null); // Очистити попередні помилки
+        setError(null);
         try {
-            const loginResponse: LoginResponse = await apiLoginUser(credentials); // Викликаємо API
+            console.log('Attempting login...');
+            const loginResponse: LoginResponse = await apiLoginUser(credentials);
             const { user: loggedInUser, token: authToken } = loginResponse;
 
+            console.log('Login successful:', { user: loggedInUser, hasToken: !!authToken });
+
+            // Зберігаємо дані
             localStorage.setItem('authUser', JSON.stringify(loggedInUser));
             localStorage.setItem('authToken', authToken);
 
+            // Оновлюємо стан
             setUser(loggedInUser);
             setToken(authToken);
             setIsAuthenticated(true);
-        } catch (err: any) { // Краще типізувати помилку, якщо знаєте її структуру
-            console.error("Login failed:", err);
+
+            console.log('Auth state updated');
+        } catch (err: any) {
+            console.error('Login failed:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Помилка логіну. Спробуйте ще раз.';
             setError(errorMessage);
-            // Важливо: викидаємо помилку далі, щоб компонент міг її обробити, якщо потрібно
             throw err;
         }
     };
 
     const logout = () => {
+        console.log('Logging out...');
+
+        // Очищуємо localStorage
         localStorage.removeItem('authUser');
         localStorage.removeItem('authToken');
+
+        // Очищуємо стан
         setUser(null);
         setToken(null);
         setIsAuthenticated(false);
         setError(null);
-        // Додатково: можна перенаправити на сторінку логіну
-        // наприклад, window.location.href = '/login';
-        // або за допомогою React Router: navigate('/login');
+
+        console.log('Logout completed');
     };
 
     const clearError = () => {
         setError(null);
     };
 
-    // Не рендеримо дочірні елементи, поки не завершилося початкове завантаження з localStorage
-    // Це запобігає "миготінню" або відображенню невірного стану UI.
-    // if (isLoading) {
-    // return <p>Завантаження стану автентифікації...</p>; // Або ваш компонент-завантажувач
-    // }
-    // Краще обробляти isLoading в самому App.tsx, щоб уникнути ререндеру всього дерева
-    // тут ми просто надаємо значення isLoading
+    // Логування для дебагу
+    useEffect(() => {
+        console.log('Auth state changed:', {
+            isAuthenticated,
+            hasUser: !!user,
+            userName: user?.name,
+            hasToken: !!token,
+            isLoading
+        });
+    }, [isAuthenticated, user, token, isLoading]);
 
     return (
         <AuthContext.Provider
@@ -121,7 +159,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
-// Хук для зручного доступу до контексту
 export const useAuth = (): AuthContextType => {
     const context = useContext(AuthContext);
     if (context === undefined) {

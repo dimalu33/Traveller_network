@@ -1,6 +1,6 @@
 // src/components/PostList.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Post, getPosts, getLikesForPost, getCommentsForPost } from '../services/api';
+import { Post, getPosts } from '../services/api';
 import PostItem from './PostItem';
 
 const PostList: React.FC = () => {
@@ -8,64 +8,105 @@ const PostList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Функція для оновлення даних конкретного поста в списку
     const updatePostData = useCallback((postId: string, updatedData: Partial<Post>) => {
         setPosts(prevPosts =>
-            prevPosts.map(p =>
-                p.id === postId ? { ...p, ...updatedData } : p
+            prevPosts.map(post =>
+                post.id === postId ? { ...post, ...updatedData } : post
             )
         );
     }, []);
 
     useEffect(() => {
-        const fetchInitialPosts = async () => {
+        const fetchPosts = async () => {
             try {
                 setLoading(true);
-                const fetchedPosts = await getPosts();
-                // Опціонально: відразу завантажити кількість лайків і коментарів для кожного поста
-                // Або це можна зробити в PostItem при його відображенні
-                // Тут я залишу це для PostItem, щоб зменшити початкове навантаження
-
-                // Для прикладу, якщо б ми хотіли збагатити пости відразу:
-                // const postsWithCounts = await Promise.all(
-                //     fetchedPosts.map(async (post) => {
-                //         const [likesData, commentsData] = await Promise.all([
-                //             getLikesForPost(post.id),
-                //             getCommentsForPost(post.id) // Або просто отримати кількість, якщо є такий ендпоінт
-                //         ]);
-                //         return {
-                //             ...post,
-                //             like_count: likesData.likeCount,
-                //             comment_count: commentsData.length, // Припускаючи, що getCommentsForPost повертає масив
-                //             comments: commentsData, // Можна відразу завантажити
-                //             likes: likesData
-                //         };
-                //     })
-                // );
-                // setPosts(postsWithCounts);
-
-                setPosts(fetchedPosts); // Простіший варіант, PostItem сам завантажить деталі
                 setError(null);
+                const fetchedPosts = await getPosts();
+                setPosts(fetchedPosts);
             } catch (err: any) {
-                console.error("Failed to fetch posts:", err);
-                setError(err.message || "Не вдалося завантажити пости.");
+                console.error('Failed to fetch posts:', err);
+                setError(err.message || 'Не вдалося завантажити пости');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchInitialPosts();
+        fetchPosts();
     }, []);
 
-    if (loading) return <p>Завантаження постів...</p>;
-    if (error) return <p style={{ color: 'red' }}>Помилка: {error}</p>;
-    if (posts.length === 0) return <p>Постів ще немає.</p>;
+    if (loading) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '200px'
+            }}>
+                <p>Завантаження постів...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '200px'
+            }}>
+                <div style={{
+                    color: '#dc3545',
+                    backgroundColor: '#f8d7da',
+                    border: '1px solid #f5c6cb',
+                    padding: '1rem',
+                    borderRadius: '4px',
+                    textAlign: 'center'
+                }}>
+                    Помилка: {error}
+                </div>
+            </div>
+        );
+    }
+
+    if (posts.length === 0) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '200px'
+            }}>
+                <p style={{ color: '#666', fontSize: '18px' }}>
+                    Постів ще немає
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div>
-            {posts.map(post => (
-                <PostItem key={post.id} post={post} onPostDataUpdate={updatePostData} />
-            ))}
+        <div style={{
+            maxWidth: '800px',
+            margin: '0 auto',
+            padding: '0 1rem'
+        }}>
+            <h2 style={{
+                textAlign: 'center',
+                marginBottom: '2rem',
+                color: '#333'
+            }}>
+                Останні пости ({posts.length})
+            </h2>
+
+            <div>
+                {posts.map(post => (
+                    <PostItem
+                        key={post.id}
+                        post={post}
+                        onPostDataUpdate={updatePostData}
+                    />
+                ))}
+            </div>
         </div>
     );
 };
