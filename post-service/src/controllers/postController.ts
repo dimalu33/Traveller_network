@@ -47,17 +47,13 @@ export async function handleCreatePost(req: Request, res: Response, next: NextFu
         res.status(201).json(post);
     } catch (error) {
         console.error('[PostService] Error in handleCreatePost:', error);
-        // Якщо пост був створений, але відправка в чергу не вдалася,
-        // або якщо файл був, але сталася інша помилка.
-        // В ідеалі, потрібна транзакційність або механізм компенсації.
-        // Поки що, якщо файл є, спробуємо його видалити.
+
         if (imageFile && imageFile.path) {
             fs.unlink(imageFile.path, (unlinkErr) => {
                 if (unlinkErr) console.error("[PostService] Error deleting temp file after controller error:", unlinkErr);
             });
         }
-        // Можливо, варто видалити пост, якщо він був створений, а обробка зображення не почалася.
-        // if (createdPostId) { /* ... логіка видалення поста ... */ }
+
         next(error);
     }
 }

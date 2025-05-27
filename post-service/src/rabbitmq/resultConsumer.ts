@@ -23,17 +23,14 @@ export async function startConsumingResults() {
                     console.log(`[PostService] Post ${result.postId} image_url updated to ${fullImageUrl}`);
                 } else {
                     console.error(`[PostService] Image processing failed for post ${result.postId}: ${result.error}`);
-                    // Можна встановити image_url в null або спеціальне значення
                     await updatePostImageUrl(result.postId, '');
                 }
                 channel.ack(msg);
             } catch (error: any) {
                 console.error('[PostService] Error processing result message:', error);
-                // Якщо помилка при обробці повідомлення, не повертати в чергу, щоб уникнути циклу. Розглянути DLX.
                 if (result) {
-                    // Можна спробувати якусь логіку відновлення або логування помилки з postId
                 }
-                channel.ack(msg); // Поки просто підтверджуємо
+                channel.ack(msg);
             }
         }
     }, { noAck: false });
