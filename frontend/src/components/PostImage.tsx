@@ -12,9 +12,8 @@ const PostImage: React.FC<PostImageProps> = ({ imageUrl, alt }) => {
     const [hasError, setHasError] = useState(false);
     const [derivedImageUrl, setDerivedImageUrl] = useState<string | null>(null);
 
-    // Використовуємо useMemo для обчислення URL, щоб це відбувалося лише при зміні imageUrl
     const finalImageUrlToLoad = useMemo(() => {
-        if (!imageUrl) {
+        if (!imageUrl) { // Якщо imageUrl це null, undefined, або порожній рядок
             return null;
         }
 
@@ -28,37 +27,35 @@ const PostImage: React.FC<PostImageProps> = ({ imageUrl, alt }) => {
             return gatewayUrl;
         } catch (error) {
             console.error(
-                `[PostImage] Failed to parse imageUrl ('${imageUrl}') as a full URL. Assuming it might be a relative path or invalid. Error:`,
+                `[PostImage] Failed to parse imageUrl ('${imageUrl}') as a full URL. Error:`,
                 error
             );
-            // Якщо це не повний URL, і якщо він не починається з '/', додамо слеш.
-            // Це запасний варіант, якщо дані з бекенду несподівано зміняться.
-            // У вашому випадку, згідно з відповіддю API, imageUrl завжди повний.
+            // Спроба обробити, якщо це відносний шлях (малоймовірно, згідно з вашим API)
             if (typeof imageUrl === 'string') {
-                // Якщо це вже відносний шлях, який потрібен (малоймовірно у вашому випадку)
                 if (imageUrl.startsWith('/processed_images/')) {
                     return `${IMAGE_SERVICE_BASE_URL}${imageUrl}`;
                 }
-                // Якщо це просто ім'я файлу (ще менш ймовірно)
-                // return `${IMAGE_SERVICE_BASE_URL}/processed_images/${imageUrl}`;
+                // Якщо це вже повний URL, який вказує на API Gateway
+                if (imageUrl.startsWith(IMAGE_SERVICE_BASE_URL) && imageUrl.includes('/processed_images/')) {
+                    return imageUrl;
+                }
             }
             return null; // Повертаємо null, якщо не вдалося сформувати URL
         }
-    }, [imageUrl]); // Залежність від imageUrl
+    }, [imageUrl]);
 
     useEffect(() => {
-        // Оновлюємо стани, коли finalImageUrlToLoad змінюється
         if (finalImageUrlToLoad) {
             setIsLoading(true);
             setHasError(false);
-            setDerivedImageUrl(finalImageUrlToLoad); // Зберігаємо для відображення у випадку помилки
-        } else if (imageUrl) { // Якщо imageUrl є, але finalImageUrlToLoad став null (помилка парсингу)
+            setDerivedImageUrl(finalImageUrlToLoad);
+        } else if (imageUrl) {
             setIsLoading(false);
             setHasError(true);
-            setDerivedImageUrl(imageUrl); // Показуємо оригінальний URL, з яким виникла проблема
-        } else { // Якщо imageUrl немає
+            setDerivedImageUrl(imageUrl); // Для відображення проблемного URL
+        } else { // imageUrl відсутній або невалідний
             setIsLoading(false);
-            setHasError(false); // Немає помилки, просто немає зображення
+            setHasError(false);
             setDerivedImageUrl(null);
         }
     }, [finalImageUrlToLoad, imageUrl]);
@@ -74,24 +71,28 @@ const PostImage: React.FC<PostImageProps> = ({ imageUrl, alt }) => {
         setHasError(true);
     };
 
-    if (!imageUrl) { // Якщо imageUrl відсутній з самого початку
-        return null; // Або показати плейсхолдер, якщо потрібно
+    // Якщо imageUrl спочатку null або undefined, нічого не рендеримо
+    if (!imageUrl) {
+        return null;
     }
 
-    if (hasError || !finalImageUrlToLoad) { // Якщо сталася помилка або URL не вдалося сформувати
+    // Якщо URL не вдалося сформувати, або сталася помилка завантаження
+    if (hasError || !finalImageUrlToLoad) {
         return (
             <div style={{
                 width: '100%',
-                minHeight: '200px', // Використовуємо minHeight для кращого вигляду
+                minHeight: '200px',
                 backgroundColor: '#f8f9fa',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#dc3545', // Червоний колір для помилки
+                color: '#dc3545',
                 fontSize: '14px',
-                border: '1px solid #e1e8ed',
+                borderTop: '1px solid #e1e8ed', // Додав верхній бордер для відокремлення
+                borderBottom: '1px solid #e1e8ed', // Додав нижній бордер
                 padding: '10px',
-                textAlign: 'center'
+                textAlign: 'center',
+                boxSizing: 'border-box'
             }}>
                 <div>
                     📷 Зображення недоступне.
@@ -102,7 +103,7 @@ const PostImage: React.FC<PostImageProps> = ({ imageUrl, alt }) => {
     }
 
     return (
-        <div style={{ width: '100%', position: 'relative', minHeight: isLoading ? '200px' : 'auto' /* Плейсхолдер поки завантажується */ }}>
+        <div style={{ width: '100%', position: 'relative', minHeight: isLoading ? '200px' : 'auto', borderTop: '1px solid #e1e8ed', borderBottom: '1px solid #e1e8ed' }}>
             {isLoading && (
                 <div style={{
                     position: 'absolute',
@@ -117,23 +118,24 @@ const PostImage: React.FC<PostImageProps> = ({ imageUrl, alt }) => {
                     color: '#657786',
                     fontSize: '14px',
                     zIndex: 1,
-                    minHeight: '200px' // Щоб лоадер мав розмір
+                    minHeight: '200px'
                 }}>
                     Завантаження зображення...
                 </div>
             )}
             <img
-                src={finalImageUrlToLoad} // Завжди використовуємо цей URL для тегу img
+                src={finalImageUrlToLoad}
                 alt={alt}
                 onLoad={handleLoad}
                 onError={handleError}
                 style={{
                     width: '100%',
-                    maxHeight: '500px',
-                    objectFit: 'cover',
+                    maxHeight: '600px', // Збільшив максимальну висоту для кращого вигляду
+                    objectFit: 'contain', // Змінив на contain, щоб бачити все зображення, можна повернути cover
                     display: 'block',
-                    opacity: isLoading || hasError ? 0 : 1, // Ховаємо, якщо завантаження або помилка
-                    transition: 'opacity 0.3s ease'
+                    opacity: isLoading || hasError ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                    backgroundColor: isLoading ? '#f0f0f0' : 'transparent' // Фон для лоадера
                 }}
             />
         </div>
