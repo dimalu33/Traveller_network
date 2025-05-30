@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Post,
     Comment,
@@ -42,12 +42,19 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
                 })
                 .finally(() => setIsLoadingLikes(false));
         } else {
+            setLikeInfo(post.likes);
             setIsLoadingLikes(false);
         }
     }, [post.id, post.likes, post.like_count, onPostDataUpdate]);
 
-    const fetchComments = useCallback(async () => {
-        if (!comments.length && (!post.comments || post.comments.length === 0)) {
+    const fetchComments = async () => {
+        // Якщо comments вже ініціалізовані з post.comments і вони є, не завантажуємо
+        if (post.comments && post.comments.length > 0 && comments.length === post.comments.length) {
+            setIsLoadingComments(false);
+            return;
+        }
+        // Якщо локальний стан comments порожній (або не відповідає post.comments), завантажуємо
+        if (comments.length === 0 || (post.comments && comments.length !== post.comments.length)) {
             setIsLoadingComments(true);
             try {
                 const data = await getCommentsForPost(post.id);
@@ -61,20 +68,17 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
             } finally {
                 setIsLoadingComments(false);
             }
-        } else if (post.comments && post.comments.length > 0 && comments.length === 0) {
-            setComments(post.comments);
-            setIsLoadingComments(false);
-        } else {
-            setIsLoadingComments(false);
         }
-    }, [post.id, post.comments, comments, onPostDataUpdate]);
-
+    };
 
     const handleToggleComments = () => {
         const newShowState = !showComments;
         setShowComments(newShowState);
-        if (newShowState && (!comments.length && (!post.comments || post.comments.length === 0))) {
+        if (newShowState && comments.length === 0 && (!post.comments || post.comments.length === 0)) {
             fetchComments();
+        } else if (newShowState && post.comments && comments.length === 0) {
+            // Якщо post.comments є, але стан comments порожній, ініціалізуємо стан
+            setComments(post.comments);
         }
     };
 
@@ -100,14 +104,18 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
             onPostDataUpdate(post.id, { likes: updatedLikeInfoFromServer, like_count: updatedLikeInfoFromServer.likeCount });
         } catch (error) {
             console.error('Failed to like post:', error);
-            alert('Не вдалося поставити лайк. Спробуйте ще раз.');
             setLikeInfo(originalLikeInfo);
+            alert('Не вдалося поставити лайк. Спробуйте ще раз.');
         }
     };
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newComment.trim() || !token) return;
+        if (!newComment.trim()) return;
+        if (!token) {
+            alert('Будь ласка, увійдіть, щоб коментувати');
+            return;
+        }
 
         setIsSubmittingComment(true);
         try {
@@ -119,7 +127,9 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
                 comments: updatedComments,
                 comment_count: (post.comment_count || 0) + 1
             });
-            if (!showComments) setShowComments(true);
+            if (!showComments) {
+                setShowComments(true);
+            }
         } catch (error) {
             console.error('Failed to add comment:', error);
             alert('Не вдалося додати коментар');
@@ -132,8 +142,9 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
     const postAuthorName = post.author?.name || `Користувач ${post.user_id.slice(0, 6)}...`;
     const postAuthorEmail = post.author?.email;
 
-    const displayCommentCount = isLoadingComments && !comments.length ? '...' : (post.comment_count ?? comments.length ?? 0);
-    const displayLikeCount = likeInfo?.likeCount ?? post.like_count ?? 0;
+    const currentComments = comments.length > 0 ? comments : (post.comments || []);
+    const displayCommentCount = isLoadingComments && currentComments.length === 0 ? '...' : (post.comment_count ?? currentComments.length ?? 0);
+    const displayLikeCount = isLoadingLikes && !likeInfo ? '...' : (likeInfo?.likeCount ?? post.like_count ?? 0);
     const isLikedOptimistically = likeInfo?.isLikedByUser ?? false;
 
     return (
@@ -185,7 +196,7 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
                 <div style={{ display: 'flex', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #e1e8ed' }}>
                     <button
                         onClick={handleLike}
-                        disabled={!token}
+                        disabled={!token || isLoadingLikes}
                         title={isLikedOptimistically ? "Прибрати лайк" : "Поставити лайк"}
                         style={{
                             padding: '0.5rem 1rem',
@@ -193,10 +204,10 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
                             color: 'white',
                             border: 'none',
                             borderRadius: '20px',
-                            cursor: (!token) ? 'not-allowed' : 'pointer',
+                            cursor: (!token || isLoadingLikes) ? 'not-allowed' : 'pointer',
                             fontSize: '14px',
                             fontWeight: 'bold',
-                            opacity: (!token) ? 0.6 : 1,
+                            opacity: (!token || isLoadingLikes) ? 0.6 : 1,
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.3rem'
@@ -226,10 +237,12 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
 
                 {showComments && (
                     <div style={{ paddingTop: '1rem' }}>
-                        {token && user && (
+                        {token ? ( // Ключова умова: перевіряємо тільки наявність токена для відображення форми
                             <form onSubmit={handleAddComment} style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f5f8fa', borderRadius: '8px' }}>
                                 <div style={{ marginBottom: '0.5rem' }}>
-                                    <strong style={{ color: '#14171a' }}>{user.name || user.email}</strong>
+                                    <strong style={{ color: '#14171a' }}>
+                                        {user?.name || user?.email || 'Ви'} {/* Використовуємо user? опціонально */}
+                                    </strong>
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                     <textarea
@@ -246,14 +259,17 @@ const PostItem: React.FC<PostItemProps> = ({ post, onPostDataUpdate }) => {
                                     </button>
                                 </div>
                             </form>
+                        ) : (
+                            <p style={{ textAlign: 'center', color: '#657786' }}>Будь ласка, увійдіть, щоб залишати коментарі.</p>
                         )}
-                        {isLoadingComments && !comments.length ? (
+
+                        {isLoadingComments && currentComments.length === 0 ? (
                             <p style={{ textAlign: 'center', color: '#657786' }}>Завантаження коментарів...</p>
-                        ) : comments.length === 0 && !isLoadingComments ? (
+                        ) : currentComments.length === 0 && !isLoadingComments ? (
                             <p style={{ textAlign: 'center', color: '#657786' }}>Коментарів ще немає. Будьте першим!</p>
                         ) : (
                             <div>
-                                {comments.map(comment => (
+                                {currentComments.map(comment => (
                                     <div key={comment.id} style={{ padding: '0.75rem', borderTop: '1px solid #e1e8ed', backgroundColor: 'white' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                             <strong style={{ color: '#14171a', fontSize: '14px' }}>{comment.user?.name || `Користувач ${comment.user_id.slice(0, 6)}...`}</strong>
