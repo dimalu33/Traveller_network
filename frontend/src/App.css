@@ -1,0 +1,58 @@
+/* src/App.css */
+.App {
+  min-height: 100vh;
+  background-color: #f5f8fa;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f8fa;
+}
+
+.loading-container p {
+  font-size: 18px;
+  color: #657786;
+}
+
+/* Загальні стилі для кнопок */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .App {
+    padding: 0;
+  }
+
+  header {
+    padding: 1rem !important;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  article {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+}
